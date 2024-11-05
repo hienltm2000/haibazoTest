@@ -1,7 +1,12 @@
 import "./App.css";
+import { Game } from "./pages";
 
 function App() {
-  return <div className="App">hi Hiền</div>;
+  return (
+    <>
+      <Game />
+    </>
+  );
 }
 
 export default App;

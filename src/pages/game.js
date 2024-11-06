@@ -1,93 +1,134 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 const textGameHeader = {
+  // information game header
   default: "LET'S PLAY",
   end: "ALL CLEARED",
   missed: "GAME OVER",
 };
 
 const colorHeader = {
+  // color text header
   default: "text-black",
   end: "text-green-600",
   missed: "text-orange-600",
 };
 
-const TIME_COUNT_DOWN = 3000;
-const STEP_TIME_COUNT_DOWN = 200;
+const TIME_COUNT_DOWN = 3000; // time circle count down
+const STEP_TIME_COUNT_DOWN = 100; //time for each times down
+const TIME_DELAY_COUNT = 50; // time delay to action function count down
 function Game() {
-  // Các state để quản lý trạng thái trò chơi
+  //ref
+  const clickCircleRef = useRef({}); // list circle that has been click
+  const timersRef = useRef({}); //time count down for each circle
+  // state game
   const [textHeader, setTextHeader] = useState({
+    // body header game
     text: textGameHeader.default,
     color: colorHeader.default,
   });
-  const [points, setPoints] = useState(5); // Số lượng điểm (vòng tròn)
-  const [time, setTime] = useState(0); // Thời gian đã trôi qua
-  const [isPlaying, setIsPlaying] = useState(false); // Trạng thái đang chơi
-  const [autoPlay, setAutoPlay] = useState(false); // Chế độ tự động chơi
-  const [nextNumber, setNextNumber] = useState(1); // Số tiếp theo cần nhấp
-  const [circles, setCircles] = useState([]); // Mảng chứa thông tin các vòng tròn
-  const [clickedNumbers, setClickedNumbers] = useState([]); // Các số đã được nhấp
-  const [clickTimes, setClickTimes] = useState({}); // Thời gian nhấp cho mỗi vòng tròn
+  const [isGameInit, setIsGameInit] = useState(false);
+  const [points, setPoints] = useState(5); // Number of points (circles)
+  const [time, setTime] = useState(0); // Elapsed time
+  const [isPlaying, setIsPlaying] = useState(false); // Playing state
+  const [autoPlay, setAutoPlay] = useState(false); // Auto Mode
+  const [nextNumber, setNextNumber] = useState(1); // next number to click
+  const [circles, setCircles] = useState([]); // Array containing circle information
+  const [clickedNumbers, setClickedNumbers] = useState([]); // Numbers that have been clicked
+  const [clickTimes, setClickTimes] = useState({}); // Click time for each circle
 
-  // Hàm tạo các vòng tròn với vị trí ngẫu nhiên
+  useEffect(() => {
+    return () => {
+      setIsGameInit(false);
+    };
+  }, []);
+
+  // function random postion circle
+  const MIN_DISTANCE_PERCENT = 8; // Ensure a minimum distance between circles
+  const MAX_ATTEMPTS = 10; // Limit the number of attempts to place a circle to improve performance
+
+  const isFarEnough = (x, y, circles, minDistance) => {
+    // Only calculate with the 5 last circles
+    return circles.slice(-5).every((circle) => {
+      const distance = Math.sqrt(
+        Math.pow(x - circle.x, 2) + Math.pow(y - circle.y, 2)
+      );
+      return distance >= minDistance;
+    });
+  };
+
   const generateCircles = useCallback(() => {
     const newCircles = [];
     for (let i = points; i >= 1; i--) {
-      // Loop from points to 1
-      newCircles.push({
-        id: i,
-        x: Math.random() * 80 + 10, // Random position from 10% to 90%
-        y: Math.random() * 80 + 10,
-      });
+      let x, y;
+      let attempts = 0;
+
+      do {
+        x = Math.random() * 90 + 5; // Random position from 5% to 95%;
+        y = Math.random() * 90 + 5;
+        attempts++;
+      } while (
+        attempts < MAX_ATTEMPTS &&
+        !isFarEnough(x, y, newCircles, MIN_DISTANCE_PERCENT)
+      );
+
+      newCircles.push({ id: i, x, y });
     }
+
     setCircles(newCircles);
   }, [points]);
 
-  // Hàm bắt đầu trò chơi mới
+  // function start game
   const startGame = useCallback(() => {
+    !isGameInit && setIsGameInit(true);
+    clickCircleRef.current = {};
     setTime(0);
     setNextNumber(1);
     setClickedNumbers([]);
     setClickTimes({});
     setIsPlaying(true);
+    setAutoPlay(false);
     generateCircles();
     setTextHeader({
       text: textGameHeader.default,
       color: colorHeader.default,
     });
-  }, [generateCircles]);
+  }, [generateCircles, isGameInit]);
 
-  // Xử lý khi nhấp vào một vòng tròn
+  // handle to click a circle
   const handleCircleClick = useCallback(
     (id) => {
-      setClickedNumbers((prev) => [...prev, id]);
-      setClickTimes((prev) => ({ ...prev, [id]: TIME_COUNT_DOWN })); // Start countdown from TIME_COUNT_DOWN ms
-      if (id === nextNumber) {
-        if (nextNumber === points) {
-          const TIME_END =
-            STEP_TIME_COUNT_DOWN * (TIME_COUNT_DOWN / STEP_TIME_COUNT_DOWN + 2);
-          const timeoutEnd = setTimeout(() => {
-            setIsPlaying(false); // End game if all numbers clicked
-            setTextHeader({
-              text: textGameHeader.end,
-              color: colorHeader.end,
-            });
-          }, TIME_END);
-          return () => clearTimeout(timeoutEnd);
+      if (!clickCircleRef.current[id]) {
+        clickCircleRef.current = { ...clickCircleRef.current, [id]: id };
+        setClickedNumbers((prev) => [...prev, id]);
+        setClickTimes((prev) => ({ ...prev, [id]: TIME_COUNT_DOWN })); // Start countdown from TIME_COUNT_DOWN ms
+        if (id === nextNumber) {
+          if (nextNumber === points) {
+            const TIME_END =
+              TIME_DELAY_COUNT * (TIME_COUNT_DOWN / STEP_TIME_COUNT_DOWN + 6); //time from click to hidden circle
+            const timeoutEnd = setTimeout(() => {
+              setIsPlaying(false); // End game if all numbers clicked
+              setTextHeader({
+                text: textGameHeader.end,
+                color: colorHeader.end,
+              });
+            }, TIME_END);
+            return () => clearTimeout(timeoutEnd);
+          } else {
+            setNextNumber((prev) => prev + 1);
+          }
         } else {
-          setNextNumber((prev) => prev + 1);
+          setTextHeader({
+            text: textGameHeader.missed,
+            color: colorHeader.missed,
+          });
+          setIsPlaying(false);
         }
-      } else {
-        setTextHeader({
-          text: textGameHeader.missed,
-          color: colorHeader.missed,
-        });
-        setIsPlaying(false);
       }
     },
     [nextNumber, points]
   );
 
-  // Quản lý thời gian tổng thể của trò chơi
+  // manage the overall timing of the game
   useEffect(() => {
     const STEP_TIME = 100;
     if (isPlaying) {
@@ -98,9 +139,7 @@ function Game() {
     }
   }, [isPlaying]);
 
-  // Quản lý thời gian đếm ngược của từng vòng tròn
-  const timersRef = useRef({});
-
+  // Time count down for each circle
   useEffect(() => {
     if (isPlaying) {
       Object.keys(clickTimes).forEach((id) => {
@@ -115,11 +154,10 @@ function Game() {
               }
               return { ...prev, [id]: remainingTime };
             });
-          }, STEP_TIME_COUNT_DOWN);
+          }, TIME_DELAY_COUNT);
         }
       });
     }
-
     // Cleanup all timers when `isPlaying` changes
     return () => {
       Object.keys(timersRef.current).forEach((id) =>
@@ -128,9 +166,8 @@ function Game() {
       timersRef.current = {}; // Reset ref to clean up all timers
     };
   }, [isPlaying, clickTimes]);
-  console.log(clickTimes);
 
-  // Effect để quản lý chế độ tự động chơi
+  // Effect auto play ON
   useEffect(() => {
     let timeout;
     if (autoPlay && isPlaying) {
@@ -141,12 +178,12 @@ function Game() {
     return () => clearTimeout(timeout);
   }, [autoPlay, isPlaying, nextNumber, handleCircleClick]);
 
-  // Hàm xác định style cho từng vòng tròn dựa trên trạng thái
+  // determine the style for each circle by status
   const getCircleStyle = (id) => {
     if (clickedNumbers.includes(id)) {
-      return "border-red-500 bg-red-500 text-white"; // Đã nhấp
+      return "border-red-500 bg-red-500 text-white"; // khi nhấp
     }
-    return "border-gray-800 bg-white text-gray-800"; // Chưa đến lượt
+    return "border-gray-800 bg-white text-gray-800"; // khi chưa nhấp
   };
 
   return (
@@ -155,7 +192,7 @@ function Game() {
         {textHeader.text}
       </h1>
 
-      {/* Phần nhập điểm và hiển thị thời gian */}
+      {/* Input points and show time play */}
       <div>
         <div className="grid grid-cols-4 gap-2">
           <label htmlFor="points" className="block text-sm font-medium mb-1">
@@ -169,7 +206,6 @@ function Game() {
             onChange={(e) => setPoints(Number(e.target.value))}
             min="1"
             max="10000"
-            disabled={isPlaying}
           />
         </div>
         <div className="grid grid-cols-4 gap-2">
@@ -180,13 +216,13 @@ function Game() {
         </div>
       </div>
 
-      {/* Nút điều khiển trò chơi */}
+      {/* buttons control game */}
       <div className="grid grid-cols-2 gap-2">
         <button
           onClick={startGame}
           className="flex-1 rounded-md bg-slate-900 text-white py-3"
         >
-          {isPlaying ? "Restart" : "Start"}
+          {isGameInit ? "Restart" : "Play"}
         </button>
         {isPlaying && (
           <button
@@ -198,13 +234,13 @@ function Game() {
         )}
       </div>
 
-      {/* Khu vực chơi game chính */}
+      {/* Main area playing game */}
       <div className="relative aspect-square border-2 border-gray-300 rounded-lg bg-white overflow-hidden">
         {circles.map((circle) => {
           const opacity =
             clickTimes[circle?.id] !== undefined
               ? clickTimes[circle?.id] / TIME_COUNT_DOWN
-              : 1; // Calculate opacity based on remaining time
+              : 1; // opacity depend on time count down
 
           return (
             <div
@@ -221,12 +257,14 @@ function Game() {
                 onClick={() => isPlaying && handleCircleClick(circle?.id)}
                 className={`w-12 h-12 rounded-full border-2 text-xs
                 ${getCircleStyle(circle?.id)}
-                transition-all duration-300
                 ${
                   isPlaying
                     ? "cursor-pointer hover:scale-110"
                     : "cursor-not-allowed opacity-50"
-                } transition-opacity duration-${STEP_TIME_COUNT_DOWN} ease-in-out  `}
+                } transition-opacity duration-${
+                  TIME_DELAY_COUNT *
+                  (TIME_COUNT_DOWN / STEP_TIME_COUNT_DOWN + 6) //time from click to hidden circle
+                } ease-in-out  `}
                 style={{
                   opacity: opacity, // Apply calculated opacity
                 }}
@@ -245,8 +283,8 @@ function Game() {
         })}
       </div>
 
-      {/* Hiển thị số tiếp theo cần nhấp */}
-      <div className="text-sm">Next: {nextNumber}</div>
+      {/* Show the next number to click */}
+      {isPlaying && <div className="text-sm">Next: {nextNumber}</div>}
     </div>
   );
 }

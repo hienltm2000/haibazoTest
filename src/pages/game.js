@@ -205,7 +205,7 @@ function Game() {
             value={points}
             onChange={(e) => setPoints(Number(e.target.value))}
             min="1"
-            max="10000"
+            max="2000"
           />
         </div>
         <div className="grid grid-cols-4 gap-2">
@@ -220,7 +220,8 @@ function Game() {
       <div className="grid grid-cols-2 gap-2">
         <button
           onClick={startGame}
-          className="flex-1 rounded-md bg-slate-900 text-white py-3"
+          className="flex-1 rounded-md bg-slate-900 text-white py-3 disabled:bg-slate-400 disabled:cursor-not-allowed"
+          disabled={points <= 0 || points > 2000}
         >
           {isGameInit ? "Restart" : "Play"}
         </button>
